@@ -84,6 +84,12 @@ bool SellAction::Execute(Event event)
         return true;
     }
 
+    std::vector<Item*> items = AI_VALUE2(std::vector<Item*>, "inventory items", text);
+    if(!items.empty()){
+        Sell(*items.begin());
+        return true;
+    }
+
     botAI->TellError("Usage: s gray/*/vendor/all");
     return false;
 }
