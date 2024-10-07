@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
+ * and/or modify it under version 2 of the License, or (at your option), any later version.
  */
 
 #ifndef _PLAYERBOT_H
@@ -14,6 +15,7 @@
 #include "RandomPlayerbotMgr.h"
 #include "SharedValueContext.h"
 #include "Spell.h"
+#include "SpellMgr.h"
 #include "TravelNode.h"
 
 std::vector<std::string> split(std::string const s, char delim);
@@ -34,13 +36,16 @@ int strcmpi(char const* s1, char const* s2);
 #define AI_VALUE_LAZY(type, name) context->GetValue<type>(name)->LazyGet()
 #define AI_VALUE2_LAZY(type, name, param) context->GetValue<type>(name, param)->LazyGet()
 
+#define AI_VALUE_REF(type, name) context->GetValue<type>(name)->RefGet()
+
 #define SET_AI_VALUE(type, name, value) context->GetValue<type>(name)->Set(value)
 #define SET_AI_VALUE2(type, name, param, value) context->GetValue<type>(name, param)->Set(value)
 #define RESET_AI_VALUE(type, name) context->GetValue<type>(name)->Reset()
 #define RESET_AI_VALUE2(type, name, param) context->GetValue<type>(name, param)->Reset()
 
 #define PAI_VALUE(type, name) sPlayerbotsMgr->GetPlayerbotAI(player)->GetAiObjectContext()->GetValue<type>(name)->Get()
-#define PAI_VALUE2(type, name, param) sPlayerbotsMgr->GetPlayerbotAI(player)->GetAiObjectContext()->GetValue<type>(name, param)->Get()
+#define PAI_VALUE2(type, name, param) \
+    sPlayerbotsMgr->GetPlayerbotAI(player)->GetAiObjectContext()->GetValue<type>(name, param)->Get()
 #define GAI_VALUE(type, name) sSharedValueContext->getGlobalValue<type>(name)->Get()
 #define GAI_VALUE2(type, name, param) sSharedValueContext->getGlobalValue<type>(name, param)->Get()
 

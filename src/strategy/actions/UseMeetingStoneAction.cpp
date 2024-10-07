@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
+ * and/or modify it under version 2 of the License, or (at your option), any later version.
  */
 
 #include "UseMeetingStoneAction.h"
-#include "Event.h"
+
 #include "CellImpl.h"
+#include "Event.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "PlayerbotAIConfig.h"
@@ -21,11 +23,11 @@ bool UseMeetingStoneAction::Execute(Event event)
     ObjectGuid guid;
     p >> guid;
 
-	if (master->GetTarget() && master->GetTarget() != bot->GetGUID())
-		return false;
+    if (master->GetTarget() && master->GetTarget() != bot->GetGUID())
+        return false;
 
-	if (!master->GetTarget() && master->GetGroup() != bot->GetGroup())
-		return false;
+    if (!master->GetTarget() && master->GetGroup() != bot->GetGroup())
+        return false;
 
     if (master->IsBeingTeleported())
         return false;
@@ -40,12 +42,12 @@ bool UseMeetingStoneAction::Execute(Event event)
     if (!map)
         return false;
 
-    GameObject *gameObject = map->GetGameObject(guid);
+    GameObject* gameObject = map->GetGameObject(guid);
     if (!gameObject)
         return false;
 
-	GameObjectTemplate const* goInfo = gameObject->GetGOInfo();
-	if (!goInfo || goInfo->type != GAMEOBJECT_TYPE_SUMMONING_RITUAL)
+    GameObjectTemplate const* goInfo = gameObject->GetGOInfo();
+    if (!goInfo || goInfo->type != GAMEOBJECT_TYPE_SUMMONING_RITUAL)
         return false;
 
     return Teleport(master, bot);
@@ -53,20 +55,20 @@ bool UseMeetingStoneAction::Execute(Event event)
 
 class AnyGameObjectInObjectRangeCheck
 {
-    public:
-        AnyGameObjectInObjectRangeCheck(WorldObject const* obj, float range) : i_obj(obj), i_range(range) { }
-        WorldObject const& GetFocusObject() const { return *i_obj; }
-        bool operator()(GameObject* go)
-        {
-            if (go && i_obj->IsWithinDistInMap(go, i_range) && go->isSpawned() && go->GetGOInfo())
-                return true;
+public:
+    AnyGameObjectInObjectRangeCheck(WorldObject const* obj, float range) : i_obj(obj), i_range(range) {}
+    WorldObject const& GetFocusObject() const { return *i_obj; }
+    bool operator()(GameObject* go)
+    {
+        if (go && i_obj->IsWithinDistInMap(go, i_range) && go->isSpawned() && go->GetGOInfo())
+            return true;
 
-            return false;
-        }
+        return false;
+    }
 
-    private:
-        WorldObject const* i_obj;
-        float i_range;
+private:
+    WorldObject const* i_obj;
+    float i_range;
 };
 
 bool SummonAction::Execute(Event event)
@@ -74,15 +76,18 @@ bool SummonAction::Execute(Event event)
     Player* master = GetMaster();
     if (!master)
         return false;
-    
-    if (Pet* pet = bot->GetPet()) {
-        pet->SetReactState(REACT_PASSIVE);
-        pet->GetCharmInfo()->SetIsCommandFollow(true);
-        pet->GetCharmInfo()->IsReturning();
+
+    if (Pet* pet = bot->GetPet())
+    {
+        botAI->PetFollow();
     }
 
     if (master->GetSession()->GetSecurity() >= SEC_PLAYER)
+    {
+        // botAI->GetAiObjectContext()->GetValue<GuidVector>("prioritized targets")->Set({});
+        AI_VALUE(std::list<FleeInfo>&, "recently flee info").clear();
         return Teleport(master, bot);
+    }
 
     if (SummonUsingGos(master, bot) || SummonUsingNpcs(master, bot))
     {
@@ -160,7 +165,16 @@ bool SummonAction::SummonUsingNpcs(Player* summoner, Player* player)
 
 bool SummonAction::Teleport(Player* summoner, Player* player)
 {
-    Player* master = GetMaster();
+    // Player* master = GetMaster();
+    if (!summoner)
+        return false;
+    
+    if (player->GetVehicle())
+    {
+        botAI->TellError("You cannot summon me while I'm on a vehicle");
+        return false;
+    }
+
     if (!summoner->IsBeingTeleported() && !player->IsBeingTeleported())
     {
         float followAngle = GetFollowAngle();
@@ -173,15 +187,42 @@ bool SummonAction::Teleport(Player* summoner, Player* player)
 
             if (summoner->IsWithinLOS(x, y, z))
             {
-                bool allowed = sPlayerbotAIConfig->botReviveWhenSummon == 2 || (sPlayerbotAIConfig->botReviveWhenSummon == 1 && !master->IsInCombat() && master->IsAlive());
-                if (allowed && bot->isDead())
+                if (sPlayerbotAIConfig
+                        ->botRepairWhenSummon)  // .conf option to repair bot gear when summoned 0 = off, 1 = on
+                    bot->DurabilityRepairAll(false, 1.0f, false);
+
+                if (summoner->IsInCombat() && !sPlayerbotAIConfig->allowSummonInCombat)
+                {
+                    botAI->TellError("You cannot summon me while you're in combat");
+                    return false;
+                }
+
+                if (!summoner->IsAlive() && !sPlayerbotAIConfig->allowSummonWhenMasterIsDead)
+                {
+                    botAI->TellError("You cannot summon me while you're dead");
+                    return false;
+                }
+
+                if (bot->isDead() && !bot->HasPlayerFlag(PLAYER_FLAGS_GHOST) &&
+                    !sPlayerbotAIConfig->allowSummonWhenBotIsDead)
+                {
+                    botAI->TellError("You cannot summon me while I'm dead, you need to release my spirit first");
+                    return false;
+                }
+
+                bool revive =
+                    sPlayerbotAIConfig->reviveBotWhenSummoned == 2 ||
+                    (sPlayerbotAIConfig->reviveBotWhenSummoned == 1 && !summoner->IsInCombat() && summoner->IsAlive());
+
+                if (bot->isDead() && revive)
                 {
                     bot->ResurrectPlayer(1.0f, false);
-                    bot->DurabilityRepairAll(false, 1.0f, false);
                     botAI->TellMasterNoFacing("I live, again!");
+                    botAI->GetAiObjectContext()->GetValue<GuidVector>("prioritized targets")->Reset();
                 }
 
                 player->GetMotionMaster()->Clear();
+                AI_VALUE(LastMovement&, "last movement").clear();
                 player->TeleportTo(mapId, x, y, z, 0);
                 return true;
             }

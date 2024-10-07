@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
+ * and/or modify it under version 2 of the License, or (at your option), any later version.
  */
 
 #ifndef _PLAYERBOT_PERFORMANCEMONITOR_H
 #define _PLAYERBOT_PERFORMANCEMONITOR_H
-
-#include "Common.h"
 
 #include <chrono>
 #include <ctime>
@@ -13,13 +12,15 @@
 #include <mutex>
 #include <vector>
 
+#include "Common.h"
+
 typedef std::vector<std::string> PerformanceStack;
 
 struct PerformanceData
 {
-    uint32 minTime;
-    uint32 maxTime;
-    uint32 totalTime;
+    uint64 minTime;
+    uint64 maxTime;
+    uint64 totalTime;
     uint32 count;
     std::mutex lock;
 };
@@ -35,36 +36,37 @@ enum PerformanceMetric
 
 class PerformanceMonitorOperation
 {
-    public:
-        PerformanceMonitorOperation(PerformanceData* data, std::string const name, PerformanceStack* stack);
-        void finish();
+public:
+    PerformanceMonitorOperation(PerformanceData* data, std::string const name, PerformanceStack* stack);
+    void finish();
 
-    private:
-        PerformanceData* data;
-        std::string const name;
-        PerformanceStack* stack;
-        std::chrono::milliseconds started;
+private:
+    PerformanceData* data;
+    std::string const name;
+    PerformanceStack* stack;
+    std::chrono::microseconds started;
 };
 
 class PerformanceMonitor
 {
-    public:
-        PerformanceMonitor() { };
-        virtual ~PerformanceMonitor() { };
-        static PerformanceMonitor* instance()
-        {
-            static PerformanceMonitor instance;
-            return &instance;
-        }
+public:
+    PerformanceMonitor(){};
+    virtual ~PerformanceMonitor(){};
+    static PerformanceMonitor* instance()
+    {
+        static PerformanceMonitor instance;
+        return &instance;
+    }
 
-	public:
-        PerformanceMonitorOperation* start(PerformanceMetric metric, std::string const name, PerformanceStack* stack = nullptr);
-        void PrintStats(bool perTick = false,  bool fullStack = false);
-        void Reset();
+public:
+    PerformanceMonitorOperation* start(PerformanceMetric metric, std::string const name,
+                                       PerformanceStack* stack = nullptr);
+    void PrintStats(bool perTick = false, bool fullStack = false);
+    void Reset();
 
-	private:
-        std::map<PerformanceMetric, std::map<std::string, PerformanceData*> > data;
-        std::mutex lock;
+private:
+    std::map<PerformanceMetric, std::map<std::string, PerformanceData*> > data;
+    std::mutex lock;
 };
 
 #define sPerformanceMonitor PerformanceMonitor::instance()

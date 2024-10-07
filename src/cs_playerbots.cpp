@@ -13,6 +13,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "BattleGroundTactics.h"
 #include "Chat.h"
 #include "GuildTaskMgr.h"
 #include "PerformanceMonitor.h"
@@ -20,24 +21,28 @@
 #include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
 
+using namespace Acore::ChatCommands;
+
 class playerbots_commandscript : public CommandScript
 {
 public:
-    playerbots_commandscript() : CommandScript("playerbots_commandscript") { }
+    playerbots_commandscript() : CommandScript("playerbots_commandscript") {}
 
-    std::vector<ChatCommand> GetCommands() const override
+    ChatCommandTable GetCommands() const override
     {
-        static std::vector<ChatCommand> playerbotsCommandTable =
-        {
-            { "bot",            SEC_PLAYER,         false,  &HandlePlayerbotCommand,           nullptr },
-            { "gtask",          SEC_GAMEMASTER,     true,   &HandleGuildTaskCommand,           nullptr },
-            { "pmon",           SEC_GAMEMASTER,     true,   &HandlePerfMonCommand,             nullptr },
-            { "rndbot",         SEC_GAMEMASTER,     true,   &HandleRandomPlayerbotCommand,     nullptr }
+        static ChatCommandTable playerbotsDebugCommandTable = {
+            {"bg", HandleDebugBGCommand, SEC_GAMEMASTER, Console::Yes},
+        };
+        static ChatCommandTable playerbotsCommandTable = {
+            {"bot", HandlePlayerbotCommand, SEC_PLAYER, Console::No},
+            {"gtask", HandleGuildTaskCommand, SEC_GAMEMASTER, Console::Yes},
+            {"pmon", HandlePerfMonCommand, SEC_GAMEMASTER, Console::Yes},
+            {"rndbot", HandleRandomPlayerbotCommand, SEC_GAMEMASTER, Console::Yes},
+            {"debug", playerbotsDebugCommandTable},
         };
 
-        static std::vector<ChatCommand> commandTable =
-        {
-            { "playerbots",     SEC_PLAYER,         true,   nullptr, "",  playerbotsCommandTable },
+        static ChatCommandTable commandTable = {
+            {"playerbots", playerbotsCommandTable},
         };
 
         return commandTable;
@@ -78,12 +83,24 @@ public:
             return true;
         }
 
+        if (!strcmp(args, "toggle"))
+        {
+            sPlayerbotAIConfig->perfMonEnabled = !sPlayerbotAIConfig->perfMonEnabled;
+            if (sPlayerbotAIConfig->perfMonEnabled)
+                LOG_INFO("playerbots", "Performance monitor enabled");
+            else
+                LOG_INFO("playerbots", "Performance monitor disabled");
+            return true;
+        }
+
         sPerformanceMonitor->PrintStats();
         return true;
     }
+
+    static bool HandleDebugBGCommand(ChatHandler* handler, char const* args)
+    {
+        return BGTactics::HandleConsoleCommand(handler, args);
+    }
 };
 
-void AddSC_playerbots_commandscript()
-{
-    new playerbots_commandscript();
-}
+void AddSC_playerbots_commandscript() { new playerbots_commandscript(); }
